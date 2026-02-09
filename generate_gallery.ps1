@@ -14,7 +14,8 @@ foreach ($folder in $folders) {
 
     foreach ($f in $allFolders) {
         $images = Get-ChildItem -Path $f.FullName -File | Where-Object { $_.Extension -match '\.(jpg|jpeg|png|gif|webp)$' }
-        $videos = Get-ChildItem -Path $f.FullName -File | Where-Object { $_.Extension -match '\.(mp4|mov|avi|mkv|webm)$' }
+        # Videos skipped as per user request
+        $videos = @()
         
         if ($images.Count -eq 0 -and $videos.Count -eq 0) {
             continue
@@ -26,7 +27,7 @@ foreach ($folder in $folders) {
         $imgCount = $images.Count
         $vidCount = $videos.Count
         
-        $line = "- [**$relativeFolderPath**]($urlSafePath/README.md) ($imgCount Photos, $vidCount Videos)`n"
+        $line = "- [**$relativeFolderPath**]($urlSafePath/README.md) ($imgCount Photos)`n"
         $rootReadmeContent += $line
 
         $readmePath = Join-Path $f.FullName "README.md"
@@ -45,21 +46,10 @@ foreach ($folder in $folders) {
             $content += "</div>`n`n"
         }
 
-        if ($videos.Count -gt 0) {
-            $content += "## Videos`n`n"
-            $content += "<div align='center'>`n`n"
-            foreach ($vid in $videos) {
-                $name = $vid.Name
-                $urlEncodedName = $name.Replace(" ", "%20")
-                $content += "### $name`n"
-                $content += "<video src='$urlEncodedName' controls width='100%' muted loop style='max-width:600px;'>`n"
-                $content += "  Your browser does not support the video tag. <a href='$urlEncodedName'>Download instead</a>.`n"
-                $content += "</video>`n`n"
-            }
-            $content += "</div>`n`n"
-        }
-
-        $content += "---`n[Back to Home](../../README.md)`n"
+        # Calculate back link dynamically based on depth
+        $depth = $relativeFolderPath.Split('/').Count
+        $backLink = "../" * $depth + "README.md"
+        $content += "---`n[Back to Home]($backLink)`n"
 
         Set-Content -Path $readmePath -Value $content -Encoding UTF8
         Write-Host "Updated gallery in: $relativeFolderPath"
