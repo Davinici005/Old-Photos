@@ -1,36 +1,34 @@
 
-# Define chunk size in bytes (e.g., 200MB)
+# Fixed and Cleaner Batch Script
 $chunkSizeBytes = 200 * 1024 * 1024
 $currentBatchSize = 0
 $fileCount = 0
 
-# Get all files recursively, excluding .git folder and videos
+# Explicitly exclude video extensions using -Include/-Exclude logic or Where-Object
+# Also exclude .git folder
 $files = Get-ChildItem -Recurse -File | Where-Object { 
     $_.FullName -notmatch "\\.git\\" -and 
-    $_.Extension -notmatch "^\.(mp4|mov|avi|mkv|webm)$" 
+    $_.Extension -notin @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".MOV", ".MP4")
 }
 
 foreach ($file in $files) {
     try {
-        $fileSize = $file.Length
+        # Check against gitignore before adding? 
+        # Easier to just try add. If ignored, git returns 1, we skip.
+        # But we filtered videos above, so it should be clean.
         
-        # Add the file (handle spaces in path)
-        git add "$($file.FullName)"
+        # Suppress git add output errors/warnings to keep console clean (2>$null)
+        git add "$($file.FullName)" 2>$null
         
-        # Check if file was added/staged (git add returns 0 usually)
         if ($LASTEXITCODE -eq 0) {
-            $currentBatchSize += $fileSize
+            $currentBatchSize += $file.Length
             $fileCount++
         }
 
-        # If batch size exceeds limit, commit and push
         if ($currentBatchSize -ge $chunkSizeBytes) {
             Write-Host "Batch limit reached ($([math]::Round($currentBatchSize / 1MB, 2)) MB). Committing..."
             
             git commit -m "Add batch of photos ($fileCount files)"
-            
-            # Should push if commit succeeded OR if we have pending commits from a resume
-            # But checking pending commits is tricky. We'll rely on commit success first.
             
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "Pushing batch..."
@@ -45,14 +43,10 @@ foreach ($file in $files) {
                     }
                 }
                 Write-Host "Batch pushed successfully."
-                # Reset counters only after successful push
                 $currentBatchSize = 0
                 $fileCount = 0
             } else {
-                # Commit failed (empty?). We might still be accumulating size from tracked files.
-                # Just reset counters to allow next chunk to form.
-                # (Ideally we'd push here if we had backlog, but explicit push at start handles that).
-                Write-Warning "Nothing to commit in this batch (files likely already committed)."
+                # Commit failed (files likely already committed). Reset counters.
                 $currentBatchSize = 0
                 $fileCount = 0
             }
