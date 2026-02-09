@@ -1,0 +1,8 @@
+# Ignore videos and system files
+*.mp4
+*.mov
+*.avi
+*.mkv
+Thumbs.db
+Desktop.ini
+.DS_Store
